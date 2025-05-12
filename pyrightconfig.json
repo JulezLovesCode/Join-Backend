@@ -1,0 +1,15 @@
+{
+  "include": [
+    "."
+  ],
+  "extraPaths": [
+    "."
+  ],
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "warning",
+  "pythonVersion": "3.8",
+  "venvPath": ".",
+  "venv": "venv"
+}
