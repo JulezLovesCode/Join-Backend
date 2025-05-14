@@ -135,7 +135,7 @@ class ProductivityMetricsView(APIView):
     
     def calculate_progress_metrics(self):
         total_work_items = WorkItem.objects.count()
-        completed_work_items = WorkItem.objects.filter(status="done").count()
+        completed_work_items = WorkItem.objects.filter(board_category="done").count()
         pending_work_items = total_work_items - completed_work_items
         
         completion_percentage = 0
@@ -151,10 +151,10 @@ class ProductivityMetricsView(APIView):
     
     def count_items_by_status(self):
         return {
-            "to-do": WorkItem.objects.filter(status="to-do").count(),
-            "in-progress": WorkItem.objects.filter(status="in-progress").count(),
-            "await-feedback": WorkItem.objects.filter(status="await-feedback").count(),
-            "done": WorkItem.objects.filter(status="done").count(),
+            "to-do": WorkItem.objects.filter(board_category="to-do").count(),
+            "in-progress": WorkItem.objects.filter(board_category="in-progress").count(),
+            "await-feedback": WorkItem.objects.filter(board_category="await-feedback").count(),
+            "done": WorkItem.objects.filter(board_category="done").count(),
         }
     
     def count_items_by_priority(self):
