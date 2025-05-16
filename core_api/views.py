@@ -45,16 +45,119 @@ class WorkItemManagementController(ModelViewSet):
         return self.retrieve_filtered_collection()
 
     def extract_team_member_ids(self):
-        raw_ids = self.request.data.get("contact_ids", [])
+        # Debug info - print all the request data
+        print("\n\nTASK CREATE/UPDATE REQUEST DATA:", self.request.data, "\n\n")
         
+        # Try multiple possible field names for maximum compatibility
+        raw_ids = None
+        for field in ["contact_ids", "member_assignments", "contacts"]:
+            if field in self.request.data and self.request.data[field]:
+                raw_ids = self.request.data[field]
+                print(f"FOUND IDS IN FIELD: {field}")
+                break
+                
+        if raw_ids is None:
+            print("NO CONTACT IDS FOUND")
+            return []
+            
+        # Debug
+        print("EXTRACTED RAW IDS:", raw_ids)
+        
+        # Handle various formats
         if isinstance(raw_ids, (list, tuple, set)):
-            return list(raw_ids)
+            # Convert all items to integers if possible
+            result = []
+            for item in raw_ids:
+                try:
+                    if isinstance(item, (int, float)) or (isinstance(item, str) and item.isdigit()):
+                        result.append(int(item))
+                    elif isinstance(item, dict) and 'id' in item and str(item['id']).isdigit():
+                        result.append(int(item['id']))
+                except (ValueError, TypeError):
+                    pass
+            print("PARSED IDS (LIST):", result)
+            return result
+            
+        # Handle dictionary format
+        if isinstance(raw_ids, dict):
+            result = []
+            for key, value in raw_ids.items():
+                try:
+                    if str(key).isdigit():
+                        result.append(int(key))
+                    elif isinstance(value, dict) and 'id' in value and str(value['id']).isdigit():
+                        result.append(int(value['id']))
+                except (ValueError, TypeError):
+                    pass
+            print("PARSED IDS (DICT):", result)
+            return result
         
-        return [int(item_id) for item_id in raw_ids if str(item_id).isdigit()]
+        # Handle string with comma separated values
+        if isinstance(raw_ids, str) and ',' in raw_ids:
+            try:
+                result = [int(item.strip()) for item in raw_ids.split(',') if item.strip().isdigit()]
+                print("PARSED IDS (STRING):", result)
+                return result
+            except (ValueError, TypeError):
+                pass
+                
+        # Last resort: try to convert single value
+        try:
+            if isinstance(raw_ids, (int, float)) or (isinstance(raw_ids, str) and raw_ids.isdigit()):
+                print("PARSED ID (SINGLE):", [int(raw_ids)])
+                return [int(raw_ids)]
+        except (ValueError, TypeError):
+            pass
+            
+        print("FAILED TO PARSE IDS, RETURNING EMPTY LIST")
+        return []
 
     def create_component_items(self, parent_item, component_data_list):
+        if not component_data_list:
+            print("No subtasks to create")
+            return
+            
+        print(f"CREATING SUBTASKS FOR TASK {parent_item.id}: {component_data_list}")
+        
+        # Delete any existing subtasks first to avoid duplicates
+        parent_item.components.all().delete()
+            
         for component_data in component_data_list:
-            WorkItemComponent.objects.create(parent_item=parent_item, **component_data)
+            # Ensure we only use the fields that exist on the model
+            subtask_data = {}
+            try:
+                if isinstance(component_data, dict):
+                    # Handle various possible field names
+                    title = (
+                        component_data.get('title') or 
+                        component_data.get('name') or 
+                        component_data.get('text') or 
+                        'Untitled Subtask'
+                    )
+                    
+                    completed = (
+                        component_data.get('completed', False) or 
+                        component_data.get('done', False) or 
+                        component_data.get('finished', False) or 
+                        False
+                    )
+                    
+                    subtask_data['title'] = title
+                    subtask_data['completed'] = completed
+                    
+                    # Create the subtask with cleaned data
+                    subtask = WorkItemComponent.objects.create(parent_item=parent_item, **subtask_data)
+                    print(f"Created subtask: {subtask.id} - {subtask.title}")
+                elif isinstance(component_data, str):
+                    # Handle simple string subtasks
+                    subtask = WorkItemComponent.objects.create(
+                        parent_item=parent_item,
+                        title=component_data,
+                        completed=False
+                    )
+                    print(f"Created string subtask: {subtask.id} - {subtask.title}")
+            except Exception as e:
+                print(f"ERROR creating subtask: {e}")
 
     def perform_create(self, serializer):
         created_item = serializer.save()

@@ -11,6 +11,9 @@ from core_api.models import (
 class TeamMemberDataSerializer(serializers.ModelSerializer):
     
     def validate_email(self, value: str) -> str:
+        # Check if email already exists
+        if TeamMemberModel.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A contact with this email already exists.")
         return value
     
     class Meta:
